@@ -52,7 +52,8 @@ class JsonDbSpec extends FreeSpec with Matchers {
       .initialize
       .set[Post]("post", Post(1, "another new thing"))
 
-    val post: Post = db.item[Post]("post").value
+    val item = db.item[Post]("post")
+    val post: Post = item.value
 
   }
 
@@ -74,63 +75,22 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
   "Can remove values from a list"
 
-  //Small library that can put, save/update query json file (CATS/Argonaut)
- /*
- some sort of Monad here?
-
- for {
-  posts <- get[List[Post]]("currentPosts")
-  post  <- find[Post](_.id = 1)
-  _     <- set[List[Post]]("historicalPosts", List(Post(...), Post(...)))
-  _     <- push[Post](Post(...))
-  _     <- delete("someOtherListOfPosts")
-  -     <- remove[
- } yield thing
- verbs
- add/set
- replace
-
- https://github.com/typicode/lowdb
- // Set some defaults if your JSON file is empty
-db.defaults({ posts: [], user: {} })
-  .write()
-
-// Add a post
-db.get('posts')
-  .push({ id: 1, title: 'lowdb is awesome'})
-  .write()
-
-// Set a user
-db.set('user.name', 'typicode')
-  .write()
-
-  db.get('posts')
-  .find({ id: 1 })
-  .value()
-  */
 
 }
 
-class DbItem(name: String, db: Db) {
+class DbItem[A : Decoder](name: String, db: Db) {
   def set[A: Encoder](item: A): Db = db.set[A](name, item)
-  def value[A](implicit decode: Decoder[A]) : A = db.valueFor[A](name)
+  def value: A = db.valueFor[A](name)
 }
 
 case class Db(values: Map[String, Json ] = Map()){
-  //  def load: Db = {
-//      Db(parse(Source.fromFile(dbFileName)("UTF-8").mkString)
-//        .getOrElse(throw new RuntimeException("boom!"))
-//        .asObject.map(_.toMap)
-//        .getOrElse(Map())
-//      )
-//  }
 
   private def save: Db = {
     File("db.json").writeAll(values.asJson.spaces2)
     this
   }
 
-  def item[A](name: String)(implicit decode: Decoder[A]): DbItem = new DbItem(name, this)
+  def item[A](name: String)(implicit decode: Decoder[A]): DbItem[A] = new DbItem[A](name, this)
 
   def set[A: Encoder](item: String, value: A): Db = {
     copy(values = values + (item -> value.asJson))
@@ -138,46 +98,74 @@ case class Db(values: Map[String, Json ] = Map()){
   }
 
   def valueFor[A: Decoder](name: String): A = {
-    val map = values.get(name).map(_.as[A])
-    ???
+    val map = values.get(name).map(_.as[A]).get.getOrElse(throw new RuntimeException("boom"))
+    map
   }
 
 }
-//class Db() {
-//  val file = File("db.json")
-//
-//  if (!file.exists || file.length == 0){
-//    initialize
-//  }
-//
-//  def load = ???
-//  def save = ???
-//
-//  def initialize: Db = {
-//    val asJson: Json = Map[String, String]().asJson
-//    file.writeAll(asJson.spaces2)
-//    this
-//  }
-//
-//  def item[A](name: String)(implicit decode: Decoder[A]): DbItem[A] = new DbItem(name, this)
-//
-////  def commit: Db =  file.writeAll(value.asJson.spaces2)
-//
-//  def set[A](item: String, value: A)(implicit encode: Encoder[A]): Db = {
-//    ???
-//  }
-
-//  def push[A](item: String, value: A)(implicit encode: Encoder[A]): Db = {
-//    ???
-//  }
-//
-//}
-
 object Db {
   val file = File("db.json")
 
   def initialize = new Db()
 
-//  def set[A](itemName: String, value: A)(implicit encode: Encoder[A]): Unit =
+
+  //  def load: Db = {
+  //      Db(parse(Source.fromFile(dbFileName)("UTF-8").mkString)
+  //        .getOrElse(throw new RuntimeException("boom!"))
+  //        .asObject.map(_.toMap)
+  //        .getOrElse(Map())
+  //      )
+  //  }
+
+  //  def set[A](itemName: String, value: A)(implicit encode: Encoder[A]): Unit =
 //    File("db.json").writeAll(value.asJson.spaces2)
+
+  //  val file = File("db.json")
+  //
+  //  if (!file.exists || file.length == 0){
+  //    initialize
+  //  }
+  //
+  //  def initialize: Db = {
+  //    val asJson: Json = Map[String, String]().asJson
+  //    file.writeAll(asJson.spaces2)
+  //    this
+  //  }
+
+
 }
+
+//Small library that can put, save/update query json file (CATS/Argonaut)
+/*
+some sort of Monad here?
+
+for {
+ posts <- get[List[Post]]("currentPosts")
+ post  <- find[Post](_.id = 1)
+ _     <- set[List[Post]]("historicalPosts", List(Post(...), Post(...)))
+ _     <- push[Post](Post(...))
+ _     <- delete("someOtherListOfPosts")
+ -     <- remove[
+} yield thing
+verbs
+add/set
+replace
+
+https://github.com/typicode/lowdb
+// Set some defaults if your JSON file is empty
+db.defaults({ posts: [], user: {} })
+ .write()
+
+// Add a post
+db.get('posts')
+ .push({ id: 1, title: 'lowdb is awesome'})
+ .write()
+
+// Set a user
+db.set('user.name', 'typicode')
+ .write()
+
+ db.get('posts')
+ .find({ id: 1 })
+ .value()
+ */
