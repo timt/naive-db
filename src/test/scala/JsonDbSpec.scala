@@ -5,6 +5,8 @@ import org.scalatest.{FreeSpec, Matchers}
 
 import scala.io.Source
 import scala.reflect.io.File
+import io.circe.parser.parse
+
 
 class JsonDbSpec extends FreeSpec with Matchers {
 
@@ -15,6 +17,9 @@ class JsonDbSpec extends FreeSpec with Matchers {
     implicit val encoder: Encoder[Post] = deriveEncoder[Post]
   }
 
+  def json(jsonString: String): Json = parse(jsonString).getOrElse(throw new RuntimeException(s"boom! \n===\n$jsonString\n==="))
+  def jsonFile: Json = json(Source.fromFile("db.json").mkString)
+
 
   "Can set an item value" in {
 
@@ -22,15 +27,14 @@ class JsonDbSpec extends FreeSpec with Matchers {
       .initialize
       .set("post", Post(1, "another new thing"))
 
-    Source.fromFile("db.json").mkString should be
-    """
-        |{
+    jsonFile shouldBe json("""{
         |  "post" : {
         |    "id" : 1,
         |    "title" : "another new thing"
         |  }
         |}
-      """.stripMargin
+      """.stripMargin)
+
   }
 
   "Can get a value" in {
@@ -44,14 +48,44 @@ class JsonDbSpec extends FreeSpec with Matchers {
   }
 
   "Can add a value to to list" in {
-//    Db
-//      .initialize
-//      .set[List[Post]]("posts", List.empty[Post])
-//      .addItem[]()
+    val db = Db
+      .initialize
+      .addItem[Post]("posts", Post(1, "some post"))
+
+    jsonFile shouldBe json(
+      """
+        |{
+        |  "posts" : [ {
+        |     "id": 1,
+        |     "title": "some post"
+        |  }]
+        |}
+      """.stripMargin)
+
+    db
+      .addItem[Post]("posts", Post(2, "another post"))
+
+    jsonFile shouldBe json(
+      """
+        |{
+        |  "posts" : [
+        |  {
+        |     "id": 1,
+        |     "title": "some post"
+        |  },
+        |  {
+        |     "id": 2,
+        |     "title": "another post"
+        |  }
+        |  ]
+        |}
+      """.stripMargin)
+
 
   }
 
   "Can find a value in a list" in {
+
 
   }
 
@@ -84,6 +118,11 @@ case class Db(values: Map[String, Json ] = Map()){
   def set[A](item: String, value: A)(implicit encoder: Encoder[A]): Db = {
     copy(values = values + (item -> value.asJson))
       .save
+  }
+
+  def addItem[A](listName: String, item: A)(implicit encoder: Encoder[A], decoder: Decoder[A]): Db = {
+    val list: List[A] = get[List[A]](listName).getOrElse(List.empty[A])
+    set[List[A]](listName, (item :: list).reverse)
   }
 
   def get[A](name: String)(implicit decoder: Decoder[A]): Option[A] = values.get(name).flatMap(_.as[A].toOption)
