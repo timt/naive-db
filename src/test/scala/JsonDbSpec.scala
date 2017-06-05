@@ -17,24 +17,10 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
 
   "Can set an item value" in {
-    Db
-      .initialize
-      .item[Post]("post")
-      .set(Post(1, "some new thing"))
-
-    Source.fromFile("db.json").mkString should be
-    """
-        |{
-        |  "post" : {
-        |    "id" : 1,
-        |    "title" : "some new thing"
-        |  }
-        |}
-      """.stripMargin
 
     Db
       .initialize
-      .set[Post]("post", Post(1, "another new thing"))
+      .set("post", Post(1, "another new thing"))
 
     Source.fromFile("db.json").mkString should be
     """
@@ -50,14 +36,18 @@ class JsonDbSpec extends FreeSpec with Matchers {
   "Can get a value" in {
     val db = Db
       .initialize
-      .set[Post]("post", Post(1, "another new thing"))
+      .set("post", Post(1, "another new thing"))
 
-    val item = db.item[Post]("post")
-    val post: Post = item.value
+    val item: Option[Post] = db.get[Post]("post")
 
+    item shouldBe Some(Post(1, "another new thing"))
   }
 
   "Can add a value to to list" in {
+//    Db
+//      .initialize
+//      .set[List[Post]]("posts", List.empty[Post])
+//      .addItem[]()
 
   }
 
@@ -73,14 +63,15 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
   }
 
-  "Can remove values from a list"
+  "Can remove values from a list" in {
+
+  }
+
+  "Can load db from file" in {
+
+  }
 
 
-}
-
-class DbItem[A : Decoder](name: String, db: Db) {
-  def set[A: Encoder](item: A): Db = db.set[A](name, item)
-  def value: A = db.valueFor[A](name)
 }
 
 case class Db(values: Map[String, Json ] = Map()){
@@ -90,17 +81,12 @@ case class Db(values: Map[String, Json ] = Map()){
     this
   }
 
-  def item[A](name: String)(implicit decode: Decoder[A]): DbItem[A] = new DbItem[A](name, this)
-
-  def set[A: Encoder](item: String, value: A): Db = {
+  def set[A](item: String, value: A)(implicit encoder: Encoder[A]): Db = {
     copy(values = values + (item -> value.asJson))
-    save
+      .save
   }
 
-  def valueFor[A: Decoder](name: String): A = {
-    val map = values.get(name).map(_.as[A]).get.getOrElse(throw new RuntimeException("boom"))
-    map
-  }
+  def get[A](name: String)(implicit decoder: Decoder[A]): Option[A] = values.get(name).flatMap(_.as[A].toOption)
 
 }
 object Db {
