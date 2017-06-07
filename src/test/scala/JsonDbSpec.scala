@@ -20,6 +20,18 @@ class JsonDbSpec extends FreeSpec with Matchers {
   def json(jsonString: String): Json = parse(jsonString).getOrElse(throw new RuntimeException(s"boom! \n===\n$jsonString\n==="))
   def jsonFile: Json = json(Source.fromFile("db.json").mkString)
 
+  "can create new db in named file" in {
+
+  }
+
+  "Can load db from named file" in {
+
+  }
+
+  "load db from named file creates file if missing" in {
+
+  }
+
 
   "Can set an item value" in {
 
@@ -96,6 +108,43 @@ class JsonDbSpec extends FreeSpec with Matchers {
   }
 
   "Can remove a value" in {
+    val db = Db
+      .initialize
+      .set("post", Post(1, "another new thing"))
+      .addItem[Post]("posts", Post(1, "some post"))
+
+    jsonFile shouldBe json(
+      """{
+        |  "post" : {
+        |    "id" : 1,
+        |    "title" : "another new thing"
+        |  },
+        |  "posts" : [
+        |    {
+        |      "id" : 1,
+        |      "title" : "some post"
+        |    }
+        |  ]
+        |}
+      """.stripMargin)
+
+    val updatedDb = db.remove("post")
+
+    jsonFile shouldBe json(
+      """{
+        |  "posts" : [
+        |    {
+        |      "id" : 1,
+        |      "title" : "some post"
+        |    }
+        |  ]
+        |}
+      """.stripMargin)
+
+    updatedDb.remove("posts")
+
+    jsonFile shouldBe json(
+      """{ }""".stripMargin)
 
   }
 
@@ -103,9 +152,11 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
   }
 
-  "Can load db from file" in {
+
+  "??? can create new db in /tmp with random file name" in {
 
   }
+
 
 
 }
@@ -130,6 +181,12 @@ case class Db(values: Map[String, Json ] = Map()){
   def get[T](name: String)(implicit decoder: Decoder[T]): Option[T] = values.get(name).flatMap(_.as[T].toOption)
 
   def find[T](listName: String, predicate: T => Boolean)(implicit encoder: Encoder[T], decoder: Decoder[T]): Option[T] = get[List[T]](listName).flatMap(_.find(predicate))
+
+  def remove(name: String): Db = {
+    copy(values = values.filterKeys(_ != name))
+    .save
+  }
+
 
 }
 object Db {
