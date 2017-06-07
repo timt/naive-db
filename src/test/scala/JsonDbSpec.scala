@@ -85,11 +85,13 @@ class JsonDbSpec extends FreeSpec with Matchers {
   }
 
   "Can find a value in a list" in {
+    val post = Db
+      .initialize
+      .addItem[Post]("posts", Post(1, "some post"))
+      .addItem[Post]("posts", Post(2, "another post"))
+      .find[Post]("posts", _.title.contains("another"))
 
-
-  }
-
-  "Can modify a value in a list" in {
+    post shouldBe Some(Post(2, "another post"))
 
   }
 
@@ -115,17 +117,19 @@ case class Db(values: Map[String, Json ] = Map()){
     this
   }
 
-  def set[A](item: String, value: A)(implicit encoder: Encoder[A]): Db = {
+  def set[T](item: String, value: T)(implicit encoder: Encoder[T]): Db = {
     copy(values = values + (item -> value.asJson))
       .save
   }
 
-  def addItem[A](listName: String, item: A)(implicit encoder: Encoder[A], decoder: Decoder[A]): Db = {
-    val list: List[A] = get[List[A]](listName).getOrElse(List.empty[A])
-    set[List[A]](listName, (item :: list).reverse)
+  def addItem[T](listName: String, item: T)(implicit encoder: Encoder[T], decoder: Decoder[T]): Db = {
+    val list: List[T] = get[List[T]](listName).getOrElse(List.empty[T])
+    set[List[T]](listName, (item :: list).reverse)
   }
 
-  def get[A](name: String)(implicit decoder: Decoder[A]): Option[A] = values.get(name).flatMap(_.as[A].toOption)
+  def get[T](name: String)(implicit decoder: Decoder[T]): Option[T] = values.get(name).flatMap(_.as[T].toOption)
+
+  def find[T](listName: String, predicate: T => Boolean)(implicit encoder: Encoder[T], decoder: Decoder[T]): Option[T] = get[List[T]](listName).flatMap(_.find(predicate))
 
 }
 object Db {
