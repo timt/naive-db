@@ -17,15 +17,23 @@ class JsonDbSpec extends FreeSpec with Matchers {
     implicit val encoder: Encoder[Post] = deriveEncoder[Post]
   }
 
+  val testFile: String = "target/db.json"
+
+  val emptyJsonObject: Json = JsonObject.empty.asJson
+
   def json(jsonString: String): Json = parse(jsonString).getOrElse(throw new RuntimeException(s"boom! \n===\n$jsonString\n==="))
-  def jsonFile: Json = json(Source.fromFile("db.json").mkString)
+  def jsonFile(file: String = testFile): Json = json(Source.fromFile(file).mkString)
 
   "can create new db in named file" in {
-
+    Db.initialize("/tmp/db.json")
+    jsonFile("/tmp/db.json") shouldBe emptyJsonObject
   }
 
   "Can load db from named file" in {
-
+//    val file = java.io.File.createTempFile(this.getClass.getSimpleName, ".db")
+//    File(file.getAbsolutePath).writeAll(Map("post" -> Post(3, "some ting")).asJson.spaces2)
+//    Db.initialize(file.getAbsolutePath)
+//        .get[Post]("post") shouldBe Post(3, "some ting")
   }
 
   "load db from named file creates file if missing" in {
@@ -36,10 +44,10 @@ class JsonDbSpec extends FreeSpec with Matchers {
   "Can set an item value" in {
 
     Db
-      .initialize
+      .initialize(testFile)
       .set("post", Post(1, "another new thing"))
 
-    jsonFile shouldBe json("""{
+    jsonFile() shouldBe json("""{
         |  "post" : {
         |    "id" : 1,
         |    "title" : "another new thing"
@@ -51,7 +59,7 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
   "Can get a value" in {
     val db = Db
-      .initialize
+      .initialize(testFile)
       .set("post", Post(1, "another new thing"))
 
     val item: Option[Post] = db.get[Post]("post")
@@ -61,10 +69,10 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
   "Can add a value to to list" in {
     val db = Db
-      .initialize
+      .initialize(testFile)
       .addItem[Post]("posts", Post(1, "some post"))
 
-    jsonFile shouldBe json(
+    jsonFile(testFile) shouldBe json(
       """
         |{
         |  "posts" : [ {
@@ -77,7 +85,7 @@ class JsonDbSpec extends FreeSpec with Matchers {
     db
       .addItem[Post]("posts", Post(2, "another post"))
 
-    jsonFile shouldBe json(
+    jsonFile(testFile) shouldBe json(
       """
         |{
         |  "posts" : [
@@ -98,7 +106,7 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
   "Can find a value in a list" in {
     val post = Db
-      .initialize
+      .initialize(testFile)
       .addItem[Post]("posts", Post(1, "some post"))
       .addItem[Post]("posts", Post(2, "another post"))
       .find[Post]("posts", _.title.contains("another"))
@@ -109,11 +117,11 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
   "Can remove a value" in {
     val db = Db
-      .initialize
+      .initialize(testFile)
       .set("post", Post(1, "another new thing"))
       .addItem[Post]("posts", Post(1, "some post"))
 
-    jsonFile shouldBe json(
+    jsonFile(testFile) shouldBe json(
       """{
         |  "post" : {
         |    "id" : 1,
@@ -130,7 +138,7 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
     val updatedDb = db.remove("post")
 
-    jsonFile shouldBe json(
+    jsonFile(testFile) shouldBe json(
       """{
         |  "posts" : [
         |    {
@@ -143,8 +151,7 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
     updatedDb.remove("posts")
 
-    jsonFile shouldBe json(
-      """{ }""".stripMargin)
+    jsonFile(testFile) shouldBe emptyJsonObject
 
   }
 
@@ -161,10 +168,10 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
 }
 
-case class Db(values: Map[String, Json ] = Map()){
+case class Db(values: Map[String, Json ] = Map(), file: Option[String] = None){
 
   private def save: Db = {
-    File("db.json").writeAll(values.asJson.spaces2)
+    file.foreach(File(_).writeAll(values.asJson.spaces2))
     this
   }
 
@@ -190,9 +197,19 @@ case class Db(values: Map[String, Json ] = Map()){
 
 }
 object Db {
-  val file = File("db.json")
 
-  def initialize = new Db()
+  def initialize(file: String): Db = {
+    //  def load: Db = {
+    //      Db(parse(Source.fromFile(dbFileName)("UTF-8").mkString)
+    //        .getOrElse(throw new RuntimeException("boom!"))
+    //        .asObject.map(_.toMap)
+    //        .getOrElse(Map())
+    //      )
+    //  }
+
+    new Db(file = Some(file)).save
+  }
+  def inMemory: Db = new Db()
 
 
   //  def load: Db = {
