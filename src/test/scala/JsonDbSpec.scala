@@ -1,3 +1,5 @@
+import java.nio.file.{Files, Paths}
+
 import io.circe._
 import io.circe.generic.semiauto._
 import io.circe.syntax.EncoderOps
@@ -17,142 +19,161 @@ class JsonDbSpec extends FreeSpec with Matchers {
     implicit val encoder: Encoder[Post] = deriveEncoder[Post]
   }
 
-  val testFile: String = "target/db.json"
+  def json(jsonString: String): Json = parse(jsonString).getOrElse(throw new RuntimeException(s"boom! \n===\n$jsonString\n==="))
+
+  class TestJsonFile {
+    val path: String = java.io.File.createTempFile(this.getClass.getSimpleName, ".db").getAbsolutePath
+    def asJson: Json = json(Source.fromFile(path).mkString)
+
+  }
+  def withTempFile(f: (TestJsonFile) => Any): Unit ={
+    f(new TestJsonFile)
+  }
 
   val emptyJsonObject: Json = JsonObject.empty.asJson
 
-  def json(jsonString: String): Json = parse(jsonString).getOrElse(throw new RuntimeException(s"boom! \n===\n$jsonString\n==="))
-  def jsonFile(file: String = testFile): Json = json(Source.fromFile(file).mkString)
 
   "can create new db in named file" in {
-    Db.initialize("/tmp/db.json")
-    jsonFile("/tmp/db.json") shouldBe emptyJsonObject
+    withTempFile { file =>
+      Db.initialize(file.path)
+      file.asJson shouldBe emptyJsonObject
+    }
   }
 
   "Can load db from named file" in {
-//    val file = java.io.File.createTempFile(this.getClass.getSimpleName, ".db")
-//    File(file.getAbsolutePath).writeAll(Map("post" -> Post(3, "some ting")).asJson.spaces2)
-//    Db.initialize(file.getAbsolutePath)
-//        .get[Post]("post") shouldBe Post(3, "some ting")
+    withTempFile { file =>
+      File(file.path).writeAll(Map("post" -> Post(3, "some ting")).asJson.spaces2)
+      Db.initialize(file.path)
+        .get[Post]("post") shouldBe Some(Post(3, "some ting"))
+    }
   }
-
-  "load db from named file creates file if missing" in {
-
-  }
-
 
   "Can set an item value" in {
+    withTempFile { file =>
+      Db
+        .initialize(file.path)
+        .set("post", Post(1, "another new thing"))
 
-    Db
-      .initialize(testFile)
-      .set("post", Post(1, "another new thing"))
-
-    jsonFile() shouldBe json("""{
-        |  "post" : {
-        |    "id" : 1,
-        |    "title" : "another new thing"
-        |  }
-        |}
-      """.stripMargin)
-
+      file.asJson shouldBe json(
+        """{
+          |  "post" : {
+          |    "id" : 1,
+          |    "title" : "another new thing"
+          |  }
+          |}
+        """.
+          stripMargin)
+    }
   }
 
   "Can get a value" in {
-    val db = Db
-      .initialize(testFile)
-      .set("post", Post(1, "another new thing"))
+    withTempFile { file =>
+      val db = Db
+        .initialize(file.path)
+        .set("post", Post(1, "another new thing"))
 
-    val item: Option[Post] = db.get[Post]("post")
+      val item: Option[Post] = db.get[Post]("post")
 
-    item shouldBe Some(Post(1, "another new thing"))
+      item shouldBe Some(Post(1, "another new thing"))
+    }
   }
 
   "Can add a value to to list" in {
-    val db = Db
-      .initialize(testFile)
-      .addItem[Post]("posts", Post(1, "some post"))
+    withTempFile { file =>
+      val db = Db
+        .initialize(file.path)
+        .addItem[Post]("posts", Post(1, "some post"))
 
-    jsonFile(testFile) shouldBe json(
-      """
-        |{
-        |  "posts" : [ {
-        |     "id": 1,
-        |     "title": "some post"
-        |  }]
-        |}
-      """.stripMargin)
+      file.asJson shouldBe json(
+        """
+          |{
+          |  "posts" : [ {
+          |     "id": 1,
+          |     "title": "some post"
+          |  }]
+          |}
+        """.stripMargin)
 
-    db
-      .addItem[Post]("posts", Post(2, "another post"))
+      db
+        .addItem[Post]("posts", Post(2, "another post"))
 
-    jsonFile(testFile) shouldBe json(
-      """
-        |{
-        |  "posts" : [
-        |  {
-        |     "id": 1,
-        |     "title": "some post"
-        |  },
-        |  {
-        |     "id": 2,
-        |     "title": "another post"
-        |  }
-        |  ]
-        |}
-      """.stripMargin)
+      file.asJson shouldBe json(
+        """
+          |{
+          |  "posts" : [
+          |  {
+          |     "id": 1,
+          |     "title": "some post"
+          |  },
+          |  {
+          |     "id": 2,
+          |     "title": "another post"
+          |  }
+          |  ]
+          |}
+        """.stripMargin)
 
 
+    }
   }
 
   "Can find a value in a list" in {
-    val post = Db
-      .initialize(testFile)
-      .addItem[Post]("posts", Post(1, "some post"))
-      .addItem[Post]("posts", Post(2, "another post"))
-      .find[Post]("posts", _.title.contains("another"))
+    withTempFile { file =>
+      val post = Db
+        .initialize(file.path)
+        .addItem[Post]("posts", Post(1, "some post"))
+        .addItem[Post]("posts", Post(2, "another post"))
+        .find[Post]("posts", _.title.contains("another"))
 
-    post shouldBe Some(Post(2, "another post"))
+      post shouldBe Some(Post(2, "another post"))
 
+    }
   }
 
   "Can remove a value" in {
-    val db = Db
-      .initialize(testFile)
-      .set("post", Post(1, "another new thing"))
-      .addItem[Post]("posts", Post(1, "some post"))
+    withTempFile { file =>
+      val db = Db
+        .initialize(file.path)
+        .set("post", Post(1, "another new thing"))
+        .addItem[Post]("posts", Post(1, "some post"))
 
-    jsonFile(testFile) shouldBe json(
-      """{
-        |  "post" : {
-        |    "id" : 1,
-        |    "title" : "another new thing"
-        |  },
-        |  "posts" : [
-        |    {
-        |      "id" : 1,
-        |      "title" : "some post"
-        |    }
-        |  ]
-        |}
-      """.stripMargin)
+      file.asJson shouldBe json(
+        """{
+          |  "post" : {
+          |    "id" : 1,
+          |    "title" : "another new thing"
+          |  },
+          |  "posts" : [
+          |    {
+          |      "id" : 1,
+          |      "title" : "some post"
+          |    }
+          |  ]
+          |}
+        """.
+          stripMargin)
 
-    val updatedDb = db.remove("post")
+      val updatedDb = db.remove("post")
 
-    jsonFile(testFile) shouldBe json(
-      """{
-        |  "posts" : [
-        |    {
-        |      "id" : 1,
-        |      "title" : "some post"
-        |    }
-        |  ]
-        |}
-      """.stripMargin)
+      file.asJson shouldBe json(
+        """{
+          |  "posts" : [
+          |    {
+          |      "id" : 1,
+          |      "title" : "some post"
+          |    }
+          |  ]
+          |}
+        """.
+          stripMargin)
 
-    updatedDb.remove("posts")
+      updatedDb.
 
-    jsonFile(testFile) shouldBe emptyJsonObject
+        remove("posts")
 
+      file.asJson shouldBe emptyJsonObject
+
+    }
   }
 
   "Can remove values from a list" in {
@@ -199,15 +220,13 @@ case class Db(values: Map[String, Json ] = Map(), file: Option[String] = None){
 object Db {
 
   def initialize(file: String): Db = {
-    //  def load: Db = {
-    //      Db(parse(Source.fromFile(dbFileName)("UTF-8").mkString)
-    //        .getOrElse(throw new RuntimeException("boom!"))
-    //        .asObject.map(_.toMap)
-    //        .getOrElse(Map())
-    //      )
-    //  }
-
-    new Db(file = Some(file)).save
+    if (Files.exists(Paths.get(file)) && (Files.size(Paths.get(file)) > 0)) {
+      Db(parse(Source.fromFile(file)("UTF-8").mkString)
+        .getOrElse(throw new RuntimeException(s"Oops! Can not load file [$file]"))
+        .asObject.map(_.toMap)
+        .getOrElse(Map()),
+        Some(file))
+    } else Db(file = Some(file)).save
   }
   def inMemory: Db = new Db()
 
