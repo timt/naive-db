@@ -1,4 +1,4 @@
-naive-db  [![Build Status](https://travis-ci.org/timt/sbt-dist-zip.png?branch=master)](https://travis-ci.org/timt/sbt-dist-zip) [ ![Download](https://api.bintray.com/packages/timt/repo/sbt-dist-zip/images/download.png) ](https://bintray.com/timt/repo/sbt-dist-zip/_latestVersion)
+naive-db  [![Build Status](https://travis-ci.org/timt/naive-db.png?branch=master)](https://travis-ci.org/timt/naive-db) [ ![Download](https://api.bintray.com/packages/timt/repo/naive-db/images/download.png) ](https://bintray.com/timt/repo/naive-db/_latestVersion)
 ===========================================================================================================================================================================================================================================================================================
 A really simple json db library implemented in scala. 
 
@@ -18,7 +18,7 @@ Add the following lines to your build.sbt
 
 and Circe for encoding/decoding json
 
-    val circeVersion = "0.6.1"  //Change this to prefered version
+    val circeVersion = "0.8.0"  //Change this to prefered version
     libraryDependencies ++=Seq(
       "io.circe" %% "circe-core" % circeVersion,
       "io.circe" %% "circe-generic" % circeVersion,
