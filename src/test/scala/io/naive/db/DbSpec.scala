@@ -1,4 +1,4 @@
-import java.nio.file.{Files, Paths}
+package io.naive.db
 
 import io.circe._
 import io.circe.generic.semiauto._
@@ -10,7 +10,7 @@ import scala.io.Source
 import scala.reflect.io.File
 
 
-class JsonDbSpec extends FreeSpec with Matchers {
+class DbSpec extends FreeSpec with Matchers {
 
   case class Post(id: Int, title: String)
 
@@ -115,7 +115,7 @@ class JsonDbSpec extends FreeSpec with Matchers {
 
 
   "Can find a value in a list" withTempFile { file =>
-    val post = Db
+    val post: Option[Post] = Db
       .initialize(file.path)
       .addItem[Post]("posts", Post(1, "some post"))
       .addItem[Post]("posts", Post(2, "another post"))

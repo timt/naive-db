@@ -1,3 +1,5 @@
+package io.naive.db
+
 import java.nio.file.{Files, Paths}
 
 import io.circe.parser.parse
@@ -51,30 +53,5 @@ object Db {
   }
 
   def inMemory: Db = new Db()
-
-
-  //  def load: Db = {
-  //      Db(parse(Source.fromFile(dbFileName)("UTF-8").mkString)
-  //        .getOrElse(throw new RuntimeException("boom!"))
-  //        .asObject.map(_.toMap)
-  //        .getOrElse(Map())
-  //      )
-  //  }
-
-  //  def set[A](itemName: String, value: A)(implicit encode: Encoder[A]): Unit =
-  //    File("db.json").writeAll(value.asJson.spaces2)
-
-  //  val file = File("db.json")
-  //
-  //  if (!file.exists || file.length == 0){
-  //    initialize
-  //  }
-  //
-  //  def initialize: Db = {
-  //    val asJson: Json = Map[String, String]().asJson
-  //    file.writeAll(asJson.spaces2)
-  //    this
-  //  }
-
 
 }
